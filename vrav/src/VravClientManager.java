@@ -51,10 +51,14 @@ public class VravClientManager implements Runnable
     	sendResponse(descriptor,VravHeader.HEADER_LOGOFF,"");
     }
     
+    public void sendTextModification(int descriptor, VravTextTransport transport) {
+    	sendResponse(descriptor,transport.getHeader(),VravCommunicationUtil.createTextTransportRaw(transport));
+    }
+    
     public void sendMessage(int descriptor, String message) {
     	sendResponse(descriptor,VravHeader.HEADER_MESSAGE,message);
     }
-        
+    
     public void sendResponse(int descriptor, VravHeader header, String message) {
     	
     	String response = VravCommunicationUtil.createServiceResponse(descriptor,header,message);
@@ -79,6 +83,10 @@ public class VravClientManager implements Runnable
     		receiveMessage(request);
     		return;
     	}
+    	if (VravHeader.HEADER_ADD_TEXT == request.getHeader() || VravHeader.HEADER_REMOVE_TEXT == request.getHeader() || VravHeader.HEADER_REPLACE_TEXT == request.getHeader()) {
+    		receiveTextModification(request);
+    		return;
+    	}
     	if (VravHeader.HEADER_LOGON == request.getHeader()) {
     		receiveLogon(request);
     		return;
@@ -95,6 +103,11 @@ public class VravClientManager implements Runnable
 		this.name = name;
 		server.sendLogonToAllOthers(getDescriptor());
     }
+	
+	private void receiveTextModification(VravRequest request) {
+		VravTextTransport transport = VravCommunicationUtil.parseTextTransportRaw(request.getHeader(), request.getMessage());
+		server.sendTextModificationToAllOthers(getDescriptor(), transport);
+	}
 
 	public int getDescriptor() {
 		return descriptor;
