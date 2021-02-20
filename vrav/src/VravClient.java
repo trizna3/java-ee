@@ -1,7 +1,11 @@
 package src;
 
 import java.applet.Applet;
+import java.awt.Button;
+import java.awt.Label;
 import java.awt.TextArea;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.TextEvent;
 import java.awt.event.TextListener;
 import java.io.DataInputStream;
@@ -20,30 +24,59 @@ public class VravClient extends Applet implements Runnable
 	private Socket socket;
 	
 	/* Map<Descriptor,Name> */
-	private Map<Integer,String> otherClients = new HashMap<Integer, String>();
+	private Map<Integer,String> allClientNames = new HashMap<Integer, String>();
 	private Map<Integer,TextArea> textAreas = new HashMap<Integer, TextArea>();
-//	private boolean zapisuje = false;
-//	private Thread th;
+	
+	private String clientName;
+	private TextArea nameArea;
+	private Button nameButton;
+
+	//	private boolean zapisuje = false;
+	private Thread th;
+	private boolean nameSet = false;
 	private DataInputStream rd;
 	private DataOutputStream wr;
 	
 	public void init()
 	{
-		textAreas.put(0, new TextArea());
-		refreshTextAreas();
-		listenery();		
-		Thread th = new Thread(this);
+		refreshCanvas();
+		createConnection();
+		th = new Thread(this);
 		th.start();
 	}
 	
-	private void refreshTextAreas() {
-		removeAll();
-		
-		for (int client : textAreas.keySet()) {
-			TextArea ta = textAreas.get(client);
-			add(ta);
-			ta.setEditable(client == 0);
+	private void refreshCanvas() {
+		if (!nameSet) {
+			nameArea = new TextArea(2,50);
+			nameButton = new Button("Submit");
+			nameButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					String name = nameArea.getText();
+					if (name != null && name.trim().length() > 1) {
+						clientName = name;
+						allClientNames.put(0, name);
+						nameSet = true;
+					}
+				}
+			});
+			
+			add(new Label("Zadaj meno:"));
+			add(nameArea);
+			add(nameButton);
+			
+		} else {
+			removeAll();
+			textAreas.put(0, new TextArea());
+			for (int client : textAreas.keySet()) {
+				add(new Label(allClientNames.get(client)));
+				TextArea ta = textAreas.get(client);
+				add(ta);
+				ta.setEditable(client == 0);
+			}
+			listenery();
 		}
+		revalidate();
 	}
 	
 	private void createConnection() {
@@ -57,7 +90,7 @@ public class VravClient extends Applet implements Runnable
 		    wr = new DataOutputStream(socket.getOutputStream());
 		    rd = new DataInputStream(socket.getInputStream());
 		    
-		    sendLogon();
+		    
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -80,7 +113,22 @@ public class VravClient extends Applet implements Runnable
 	}	
 
 	public void run() {
-		createConnection();
+		// wait for user to fill name
+		while(true) {
+			try {
+				if (nameSet) {
+					refreshCanvas();
+					break;
+				}
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				break;
+			}
+		}
+		
+		// run applet after name was set
+		sendLogon();
+		
 
 		while(receiveResponse()) {
 		}
@@ -108,7 +156,7 @@ public class VravClient extends Applet implements Runnable
 	}
 	
 	private void sendLogon() {
-		sendRequest(VravHeader.HEADER_LOGON, "");
+		sendRequest(VravHeader.HEADER_LOGON, clientName == null ? "" : clientName);
 	}
 	
 	private void receiveLogon(VravResponse response) {
@@ -116,9 +164,9 @@ public class VravClient extends Applet implements Runnable
 		String name = response.getMessage();
 		
 		textAreas.put(client,new TextArea());
-		otherClients.put(client, name);
+		allClientNames.put(client, name);
 		
-		refreshTextAreas();
+		refreshCanvas();
 	}
 	
 	private void sendLogoff() {
@@ -129,9 +177,9 @@ public class VravClient extends Applet implements Runnable
 		int client = response.getClientDescriptor();
 		
 		textAreas.remove(client);
-		otherClients.remove(client);
+		allClientNames.remove(client);
 		
-		refreshTextAreas();
+		refreshCanvas();
 	}
 	
 	private void sendRequest(VravHeader header, String request) {
