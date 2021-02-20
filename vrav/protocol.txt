@@ -1,0 +1,7 @@
+The communicating peers are exchanging packets in the following protocol:
+
+length          type    description
+------------------------------------------------------------------------------
+1		byte	low byte of data length (X)
+1		byte	high byte of data length (Y) (DATA_LENGTH = X + Y*256)
+DATA_LENGTH	byte[]  data (string message)
