@@ -21,28 +21,29 @@ public class VravClient extends Applet implements Runnable
 {
 	private static final long serialVersionUID = -4297335882692216363L;
 
+	// communication
 	private Socket socket;
+	private DataInputStream rd;
+	private DataOutputStream wr;
 	
-	/* Map<Descriptor,Name> */
+	// client maps
 	private Map<Integer,String> allClientNames = new HashMap<Integer, String>();
 	private Map<Integer,TextArea> textAreas = new HashMap<Integer, TextArea>();
 	
+	// name setting components
 	private String clientName;
 	private TextArea nameArea;
 	private Button nameButton;
-
-	//	private boolean zapisuje = false;
-	private Thread th;
 	private boolean nameSet = false;
-	private DataInputStream rd;
-	private DataOutputStream wr;
+	
+	// keep record of last text state, to compute difference with newest state
+	private String myAreaText = null;
 	
 	public void init()
 	{
 		refreshCanvas();
 		createConnection();
-		th = new Thread(this);
-		th.start();
+		new Thread(this).start();
 	}
 	
 	private void refreshCanvas() {
@@ -53,7 +54,7 @@ public class VravClient extends Applet implements Runnable
 				@Override
 				public void actionPerformed(ActionEvent e) {
 					String name = nameArea.getText();
-					if (name != null && name.trim().length() > 1) {
+					if (name != null && name.trim().length() > 0) {
 						clientName = name;
 						allClientNames.put(0, name);
 						nameSet = true;
@@ -74,7 +75,7 @@ public class VravClient extends Applet implements Runnable
 				add(ta);
 				ta.setEditable(client == 0);
 			}
-			listenery();
+			setupTextListeners();
 		}
 		revalidate();
 	}
@@ -102,12 +103,29 @@ public class VravClient extends Applet implements Runnable
 //		
 //	}
 
-	public void listenery() {
+	public void setupTextListeners() {
 		textAreas.get(0).addTextListener(new TextListener(){
 			@Override
 			public void textValueChanged(TextEvent arg0) {
-				String messageOut = textAreas.get(0).getText();
-				sendMessage(messageOut);
+				String newText = textAreas.get(0).getText();
+				String oldText = myAreaText;
+				
+				if (newText == null) {
+					newText = "";
+				}
+				if (oldText == null) {
+					oldText = "";
+				}
+				
+				if (!oldText.equals(newText)) {
+					try {
+						VravTextTransport textTransport = VravTextDiffUtil.prepareTextTransport(oldText, newText);
+						sendTextModification(textTransport);
+					} catch (StringIndexOutOfBoundsException e) {
+					}
+				}
+				
+				myAreaText = newText;
 			}			
 		});
 	}	
@@ -143,6 +161,10 @@ public class VravClient extends Applet implements Runnable
 	
 	private void sendMessage(String message) {
 		sendRequest(VravHeader.HEADER_MESSAGE, message);
+	}
+	
+	private void sendTextModification(VravTextTransport textTransport) {
+		sendRequest(textTransport.getHeader(), VravCommunicationUtil.createTextTransportRaw(textTransport));
 	}
 	
 	private void receiveMessage(VravResponse response) {
@@ -182,6 +204,40 @@ public class VravClient extends Applet implements Runnable
 		refreshCanvas();
 	}
 	
+	private void receiveTextModification(VravResponse response) {
+		try {
+			VravTextTransport transport = VravCommunicationUtil.parseTextTransportRaw(response.getHeader(), response.getMessage());
+			
+			int client = response.getClientDescriptor();
+			int from = transport.getFrom();
+			int to = transport.getTo();
+			String text = transport.getText();
+			
+			TextArea ta = textAreas.get(client);
+			String currentText = ta.getText();
+			if (ta != null) {
+				if (VravHeader.HEADER_ADD_TEXT == transport.getHeader()) {
+					StringBuilder sb = new StringBuilder(currentText);
+					sb.insert(from, text);
+					ta.setText(sb.toString());
+					return;
+				} else if (VravHeader.HEADER_REMOVE_TEXT == transport.getHeader()) {
+					StringBuilder sb = new StringBuilder(currentText);
+					sb.replace(from, to, "");
+					ta.setText(sb.toString());
+					return;
+				} else if (VravHeader.HEADER_REPLACE_TEXT == transport.getHeader()) {
+					StringBuilder sb = new StringBuilder(currentText);
+					sb.replace(from, to, text);
+					ta.setText(sb.toString());
+					return;
+				}
+			}
+		} catch (StringIndexOutOfBoundsException e) {
+			return;
+		}
+	}
+	
 	private void sendRequest(VravHeader header, String request) {
 		try {
 			wr.writeUTF(VravCommunicationUtil.createServiceRequest(header, request));
@@ -217,5 +273,9 @@ public class VravClient extends Applet implements Runnable
 			receiveLogoff(response);
 			return;
 		}
+		if (VravHeader.HEADER_ADD_TEXT == response.getHeader() || VravHeader.HEADER_REMOVE_TEXT == response.getHeader() || VravHeader.HEADER_REPLACE_TEXT == response.getHeader()) {
+    		receiveTextModification(response);
+    		return;
+    	}
 	}
 }

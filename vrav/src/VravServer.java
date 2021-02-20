@@ -47,6 +47,15 @@ public class VravServer {
     	// remove clientManager of the client which logged off.
     	clientManagers.remove(fromDescriptor);
     }
+    
+    public synchronized void sendTextModificationToAllOthers(int fromDescriptor, VravTextTransport transport) {
+    	for (int id : clientManagers.keySet()) {
+			if (id == fromDescriptor) {
+				continue;
+			}
+			clientManagers.get(id).sendTextModification(fromDescriptor,transport);
+		}
+    }
 
     private boolean createConnection() {
         Socket socket = null;	
@@ -71,7 +80,6 @@ public class VravServer {
     	int newId = getNewClientDescriptor();
         System.out.println("New client (id=" + newId + ") arrived.");
         clientManagers.put(newId,new VravClientManager(newId,VravCommunicationUtil.generateName(newId),socket,this));
-//        sendLogonToAllOthers(newId);
         // New client will receive logonResponse for each other active client
         for (int id : clientManagers.keySet()) {
         	if (id == newId) {

@@ -7,6 +7,9 @@ public class VravCommunicationUtil {
 	public static final int HEADER_LOGON = 1;
 	public static final int HEADER_LOGOFF = 2;
 	public static final int HEADER_MESSAGE = 3;
+	public static final int HEADER_ADD_TEXT = 4;
+	public static final int HEADER_REMOVE_TEXT = 5;
+	public static final int HEADER_REPLACE_TEXT = 6;
 	
 	
 	public static void log(String message) {
@@ -94,6 +97,12 @@ public class VravCommunicationUtil {
 				return HEADER_LOGOFF;
 			case HEADER_MESSAGE:
 				return HEADER_MESSAGE;
+			case HEADER_ADD_TEXT:
+				return HEADER_ADD_TEXT;
+			case HEADER_REMOVE_TEXT:
+				return HEADER_REMOVE_TEXT;
+			case HEADER_REPLACE_TEXT:
+				return HEADER_REPLACE_TEXT;
 		}
 		throw new IllegalArgumentException("Unknown header!");
 	}
@@ -106,7 +115,39 @@ public class VravCommunicationUtil {
 				return VravHeader.HEADER_LOGOFF;
 			case HEADER_MESSAGE:
 				return VravHeader.HEADER_MESSAGE;
+			case HEADER_ADD_TEXT:
+				return VravHeader.HEADER_ADD_TEXT;
+			case HEADER_REMOVE_TEXT:
+				return VravHeader.HEADER_REMOVE_TEXT;
+			case HEADER_REPLACE_TEXT:
+				return VravHeader.HEADER_REPLACE_TEXT;
 		}
 		throw new IllegalArgumentException("Unknown header!");
+	}
+	
+	public static String createTextTransportRaw(VravTextTransport textTransport) {
+		StringBuilder sb = new StringBuilder();
+		
+		sb.append(textTransport.getFrom());
+		sb.append(";");
+		sb.append(textTransport.getTo());
+		sb.append(";");
+		sb.append(textTransport.getText());		
+		
+		return sb.toString();
+	}
+	
+	public static VravTextTransport parseTextTransportRaw(VravHeader header, String text) {
+		int lowerBound = 0;
+		int upperBound = text.indexOf(";");
+		
+		String fromIdx = text.substring(lowerBound, upperBound);
+		lowerBound = upperBound+1;
+		upperBound = text.indexOf(";",lowerBound);
+		String toIdx = text.substring(lowerBound, upperBound);
+		lowerBound = upperBound+1;
+		String message = text.substring(lowerBound);
+		
+		return new VravTextTransport(header, Integer.valueOf(fromIdx), Integer.valueOf(toIdx), message);
 	}
 }
