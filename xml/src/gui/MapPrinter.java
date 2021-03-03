@@ -33,10 +33,8 @@ public class MapPrinter {
 				int y2 = transformY(node2.getLat());
 				
 				drawing.addLine(x1, y1, x2, y2);
-				System.out.println("added ("+x1+","+y1+")" + " --- " + "("+x1+","+y1+")");
 			}
 		}
-//		drawing.addLine(50,50,500,500);
 		drawing.repaint();
 	}
 	

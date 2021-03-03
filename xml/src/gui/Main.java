@@ -9,7 +9,14 @@ public class Main {
 	
 	public static void main(String[] args) {
 		
-        Drawing d = new Drawing();
+		if (args.length < 1) {
+			System.out.println("Usage: java gui.Main path-to-map.osm");
+			return;
+		} else {
+			Parser.MAP_XSD_FILE = args[0];
+		}
+		
+		Drawing d = new Drawing();
         JFrame frame = new JFrame("OSM map");
         frame.add(d);
         

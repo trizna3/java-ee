@@ -19,7 +19,7 @@ public class Parser {
 	
 	private final static Parser INSTANCE = new Parser();
 	
-	private final static String MAP_XSD_FILE = "map.osm";
+	public static String MAP_XSD_FILE = "map.osm";
 	
 	public static Parser getInstance() {
 		return INSTANCE;
