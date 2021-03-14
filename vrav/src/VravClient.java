@@ -249,7 +249,11 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 		try {
 			String message = VravCommunicationUtil.createServiceRequest(header, request);
 			String signature = signMessage(message);
-			wr.writeUTF(VravCommunicationUtil.appendSignature(signature, message));
+			String signedMessage = VravCommunicationUtil.appendSignature(signature, message);
+			for (String chunk : VravCommunicationUtil.chunkize(signedMessage)) {
+				wr.writeUTF(encrypt(chunk));
+			}
+			wr.writeUTF(VravCommunicationUtil.END_MESSAGE);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -257,7 +261,16 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 	
 	private boolean receiveResponse() {
 		try {
-			String text = rd.readUTF();
+			StringBuilder chunksDecrypted = new StringBuilder();
+	    	while (true) {
+	    		String msgChunk = rd.readUTF();
+	    		if (VravCommunicationUtil.END_MESSAGE.equals(msgChunk)) {
+	    			break;
+	    		}
+	    		chunksDecrypted.append(decrypt(msgChunk));
+	    	}
+	    	String text = chunksDecrypted.toString();
+	    	
 			VravCommunicationUtil.log("Client: text read = \"" + text + "\"");
 			
 			String signature = VravCommunicationUtil.parseSignature(text);

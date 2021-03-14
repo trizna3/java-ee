@@ -12,6 +12,9 @@ public class VravCommunicationUtil {
 	public static final int HEADER_REMOVE_TEXT = 5;
 	public static final int HEADER_REPLACE_TEXT = 6;
 	
+	public static final String END_MESSAGE = "END";
+	
+	private static final int CHUNK_MAX_SIZE = 245; 
 	private static final String SIGN_KEY = "sign=";
 	private static final String MSG_KEY = "msg=";
 	
@@ -182,5 +185,34 @@ public class VravCommunicationUtil {
 		String message = text.substring(lowerBound);
 		
 		return new VravTextTransport(header, Integer.valueOf(fromIdx), Integer.valueOf(toIdx), message);
+	}
+	
+	public static String[] chunkize(String message) {
+		if (message == null) {
+			return null;
+		}
+		if (message.length() < CHUNK_MAX_SIZE) {
+			return new String[] {message};
+		}
+		
+		String[] chunks = new String[(message.length() / CHUNK_MAX_SIZE) + 1];
+		int index = 0;
+		
+		int idxFrom = 0;
+		int idxTo = CHUNK_MAX_SIZE;
+		
+		while(true) {
+			if (message.length() - idxFrom < CHUNK_MAX_SIZE) {
+				chunks[index] = message.substring(idxFrom);
+				break;
+			}
+			chunks[index] = message.substring(idxFrom,idxTo);
+			
+			index ++;
+			idxFrom += CHUNK_MAX_SIZE;
+			idxTo += CHUNK_MAX_SIZE;
+		}
+		
+		return chunks;
 	}
 }

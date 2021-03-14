@@ -68,18 +68,31 @@ public class VravClientManager implements Runnable, VravCryptedCommunicator
     	String response = VravCommunicationUtil.createServiceResponse(descriptor,header,message);
 		try {
 			String signature = signMessage(response);
-			wr.writeUTF(VravCommunicationUtil.appendSignature(signature, response));
+			String signedMessage = VravCommunicationUtil.appendSignature(signature, response);
+			for (String chunk : VravCommunicationUtil.chunkize(signedMessage)) {
+				wr.writeUTF(encrypt(chunk));
+			}
+			wr.writeUTF(VravCommunicationUtil.END_MESSAGE);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
     
     private void receiveRequest() throws IOException {
-    	String textRead = rd.readUTF();
-    	VravCommunicationUtil.log("Manager: text read = \"" + textRead + "\"");
+    	StringBuilder chunksDecrypted = new StringBuilder();
+    	while (true) {
+    		String msgChunk = rd.readUTF();
+    		if (VravCommunicationUtil.END_MESSAGE.equals(msgChunk)) {
+    			break;
+    		}
+    		chunksDecrypted.append(decrypt(msgChunk));
+    	}
+    	String msgDecrypted = chunksDecrypted.toString();
     	
-    	String signature = VravCommunicationUtil.parseSignature(textRead);
-    	String message = VravCommunicationUtil.parseMessage(textRead);
+    	VravCommunicationUtil.log("Manager: text read = \"" + msgDecrypted + "\"");
+    	
+    	String signature = VravCommunicationUtil.parseSignature(msgDecrypted);
+    	String message = VravCommunicationUtil.parseMessage(msgDecrypted);
 
     	if (!evaluateSignature(message,signature)) {
     		throw new IllegalStateException("Signature evalution failed!");
