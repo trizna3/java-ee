@@ -2,7 +2,8 @@ package src;
 
 public class VravCommunicationUtil {
 
-	public static final boolean LOG_ENABLED = false;
+	public static final boolean LOG_ENABLED_FLAG = false;
+	public static final boolean EFFECTIVE_TALK_FlAG = false;
 
 	public static final int HEADER_LOGON = 1;
 	public static final int HEADER_LOGOFF = 2;
@@ -11,9 +12,12 @@ public class VravCommunicationUtil {
 	public static final int HEADER_REMOVE_TEXT = 5;
 	public static final int HEADER_REPLACE_TEXT = 6;
 	
+	private static final String SIGN_KEY = "sign=";
+	private static final String MSG_KEY = "msg=";
+	
 	
 	public static void log(String message) {
-		if (LOG_ENABLED) {
+		if (LOG_ENABLED_FLAG) {
 			System.out.println(message);
 		} 
 	}
@@ -31,6 +35,35 @@ public class VravCommunicationUtil {
 		request.append(message);
 		
 		return request.toString();		
+	}
+	
+	public static String appendSignature(String signature, String message) {
+		StringBuilder result = new StringBuilder();
+		
+		result.append(SIGN_KEY);
+		result.append(signature);
+		result.append(MSG_KEY);
+		result.append(message);
+		
+		return result.toString();
+	}
+	
+	public static String parseSignature(String text) {
+		if (text == null || text.indexOf(SIGN_KEY) == -1 || text.indexOf(MSG_KEY) == -1) {
+			// invalid request
+			return null;
+		}
+		
+		return text.substring(text.indexOf(SIGN_KEY)+SIGN_KEY.length(),text.indexOf(MSG_KEY));
+	}
+	
+	public static String parseMessage(String text) {
+		if (text == null || text.indexOf(SIGN_KEY) == -1 || text.indexOf(MSG_KEY) == -1) {
+			// invalid request
+			return null;
+		}
+		
+		return text.substring(text.indexOf(MSG_KEY)+MSG_KEY.length());
 	}
 	
 	public static String createServiceResponse(int descriptor, VravHeader header, String message) {
@@ -68,7 +101,7 @@ public class VravCommunicationUtil {
 		lowerBound = upperBound+1;
 		String message = response.substring(lowerBound);
 		
-//		log("Response: Header code = " + headerCode + "Client descriptor = " + clientDescriptor + "Message = " + message);
+		log("Response: Header code = " + headerCode + "Client descriptor = " + clientDescriptor + "Message = " + message);
 		
 		return new VravResponse(translateHeader(Integer.valueOf(headerCode)),Integer.valueOf(clientDescriptor),message);
 	} 
@@ -84,7 +117,7 @@ public class VravCommunicationUtil {
 		lowerBound = upperBound+1;
 		String message = request.substring(lowerBound);
 		
-//		log("Response: Header code = " + headerCode + "Message = " + message);
+		log("Response: Header code = " + headerCode + "Message = " + message);
 		
 		return new VravRequest(translateHeader(Integer.valueOf(headerCode)),message);
 	}

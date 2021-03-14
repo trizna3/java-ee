@@ -6,10 +6,14 @@ package src;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.Socket;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 
-public class VravClientManager implements Runnable
+public class VravClientManager implements Runnable, VravCryptedCommunicator
 {
 	private VravServer server;
 	private int descriptor;
@@ -63,7 +67,8 @@ public class VravClientManager implements Runnable
     	
     	String response = VravCommunicationUtil.createServiceResponse(descriptor,header,message);
 		try {
-			wr.writeUTF(response);
+			String signature = signMessage(response);
+			wr.writeUTF(VravCommunicationUtil.appendSignature(signature, response));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -71,10 +76,16 @@ public class VravClientManager implements Runnable
     
     private void receiveRequest() throws IOException {
     	String textRead = rd.readUTF();
+    	VravCommunicationUtil.log("Manager: text read = \"" + textRead + "\"");
+    	
+    	String signature = VravCommunicationUtil.parseSignature(textRead);
+    	String message = VravCommunicationUtil.parseMessage(textRead);
+
+    	if (!evaluateSignature(message,signature)) {
+    		throw new IllegalStateException("Signature evalution failed!");
+    	}
 		
-		VravCommunicationUtil.log("Manager: text read = \"" + textRead + "\"");
-		VravRequest request = VravCommunicationUtil.parseServiceRequest(textRead);
-		
+    	VravRequest request = VravCommunicationUtil.parseServiceRequest(message);
 		processRequest(request);
     }
     
@@ -115,5 +126,37 @@ public class VravClientManager implements Runnable
 
 	public String getName() {
 		return name;
+	}
+	
+	public PublicKey getPublicKey() {
+        ObjectInputStream in = null;
+        PublicKey publicKey = null;
+		
+        try {
+			in = new ObjectInputStream(new FileInputStream(VravServer.CLIENT_MSG_PUBLIC_KEY_PATH));
+	        publicKey = (PublicKey) in.readObject(); 
+
+	        in.close(); 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return publicKey;
+	}
+	
+	public PrivateKey getPrivateKey() {
+        ObjectInputStream in = null;
+        PrivateKey publicKey = null;
+		
+        try {
+			in = new ObjectInputStream(new FileInputStream(VravServer.SERVER_MSG_PRIVATE_KEY_PATH));
+	        publicKey = (PrivateKey) in.readObject(); 
+
+	        in.close(); 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return publicKey;
 	}
 }

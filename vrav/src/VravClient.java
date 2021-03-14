@@ -10,14 +10,18 @@ import java.awt.event.TextEvent;
 import java.awt.event.TextListener;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.ConnectException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.Map;
 
-public class VravClient extends Applet implements Runnable
+public class VravClient extends Applet implements Runnable, VravCryptedCommunicator
 {
 	private static final long serialVersionUID = -4297335882692216363L;
 
@@ -116,13 +120,16 @@ public class VravClient extends Applet implements Runnable
 				if (oldText == null) {
 					oldText = "";
 				}
-				
-				if (!oldText.equals(newText)) {
-					try {
-						VravTextTransport textTransport = VravTextDiffUtil.prepareTextTransport(oldText, newText);
-						sendTextModification(textTransport);
-					} catch (StringIndexOutOfBoundsException e) {
+				if (VravCommunicationUtil.EFFECTIVE_TALK_FlAG) {
+					if (!oldText.equals(newText)) {
+						try {
+							VravTextTransport textTransport = VravTextDiffUtil.prepareTextTransport(oldText, newText);
+							sendTextModification(textTransport);
+						} catch (StringIndexOutOfBoundsException e) {
+						}
 					}
+				} else {
+					sendMessage(newText);
 				}
 				
 				myAreaText = newText;
@@ -240,7 +247,9 @@ public class VravClient extends Applet implements Runnable
 	
 	private void sendRequest(VravHeader header, String request) {
 		try {
-			wr.writeUTF(VravCommunicationUtil.createServiceRequest(header, request));
+			String message = VravCommunicationUtil.createServiceRequest(header, request);
+			String signature = signMessage(message);
+			wr.writeUTF(VravCommunicationUtil.appendSignature(signature, message));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -251,7 +260,14 @@ public class VravClient extends Applet implements Runnable
 			String text = rd.readUTF();
 			VravCommunicationUtil.log("Client: text read = \"" + text + "\"");
 			
-			VravResponse request = VravCommunicationUtil.parseServiceResponse(text);
+			String signature = VravCommunicationUtil.parseSignature(text);
+	    	String message = VravCommunicationUtil.parseMessage(text);
+			
+			if (!evaluateSignature(message,signature)) {
+	    		throw new IllegalStateException("Signature evalution failed!");
+	    	}
+			
+			VravResponse request = VravCommunicationUtil.parseServiceResponse(message);
 			
 			processResponse(request);
 		} catch (IOException e1) {
@@ -277,5 +293,37 @@ public class VravClient extends Applet implements Runnable
     		receiveTextModification(response);
     		return;
     	}
+	}
+	
+	public PublicKey getPublicKey() {
+        ObjectInputStream in = null;
+        PublicKey publicKey = null;
+		
+        try {
+			in = new ObjectInputStream(new FileInputStream(VravServer.SERVER_MSG_PUBLIC_KEY_PATH));
+	        publicKey = (PublicKey) in.readObject(); 
+
+	        in.close(); 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return publicKey;
+	}
+	
+	public PrivateKey getPrivateKey() {
+        ObjectInputStream in = null;
+        PrivateKey publicKey = null;
+		
+        try {
+			in = new ObjectInputStream(new FileInputStream(VravServer.CLIENT_MSG_PRIVATE_KEY_PATH));
+	        publicKey = (PrivateKey) in.readObject(); 
+
+	        in.close(); 
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return publicKey;
 	}
 }

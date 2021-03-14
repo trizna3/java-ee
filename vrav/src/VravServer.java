@@ -1,9 +1,14 @@
 package src;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,10 +16,17 @@ import java.util.Map;
 public class VravServer {
 
     final static int PORT = 2005;
+    
+    public static final String SERVER_MSG_PUBLIC_KEY_PATH = "srvPublicKey";
+    public static final String SERVER_MSG_PRIVATE_KEY_PATH = "srvPrivateKey";
+    
+    public static final String CLIENT_MSG_PUBLIC_KEY_PATH = "clientPublicKey";
+    public static final String CLIENT_MSG_PRIVATE_KEY_PATH = "clientPrivateKey";
 
     private Map<Integer,VravClientManager> clientManagers = new HashMap<Integer, VravClientManager>();
     
     public static void main(String[] args) {
+    	generateKeyPair();
         new VravServer().createConnection();
     }
     
@@ -92,5 +104,28 @@ public class VravServer {
     
     private int getNewClientDescriptor() {
     	return clientManagers.size() + 1;
+    }
+    
+    private static void generateKeyPair() {
+    	generateKeyPairInternal(SERVER_MSG_PUBLIC_KEY_PATH, SERVER_MSG_PRIVATE_KEY_PATH);
+    	generateKeyPairInternal(CLIENT_MSG_PUBLIC_KEY_PATH, CLIENT_MSG_PRIVATE_KEY_PATH);
+    }
+    
+    private static void generateKeyPairInternal(String publicKeyPath, String privateKeyPath) {
+    	try {
+    		KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+    		keyPairGen.initialize(2048);
+    		KeyPair keyPair = keyPairGen.generateKeyPair();
+
+    		ObjectOutputStream privateWriter = new ObjectOutputStream(new FileOutputStream(privateKeyPath));  
+            privateWriter.writeObject(keyPair.getPrivate());
+            privateWriter.close(); 
+            
+            ObjectOutputStream publicWriter = new ObjectOutputStream(new FileOutputStream(publicKeyPath));  
+            publicWriter.writeObject(keyPair.getPublic());
+            publicWriter.close();
+		} catch (NoSuchAlgorithmException | IOException e) {
+			e.printStackTrace();
+		}
     }
 }
