@@ -8,7 +8,10 @@ package WebApp;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -28,6 +31,7 @@ public class ChatServlet extends HttpServlet {
     private static final String MESSAGE_ARG = "message";
     private static final String REFRESH_ARG = "refresh";
     private static final String LOGOUT_ARG = "logout";
+    private static final String CLEAR_ARG = "clear";
     
     private static final String CHAT_MESSAGES_ARG = "chatMessages";
     private static final String ACTIVE_USERS_ARG = "activeUsers";
@@ -52,18 +56,44 @@ public class ChatServlet extends HttpServlet {
             // resend current page
         } else if (request.getParameter(LOGOUT_ARG) != null) {
             processLogout(request);
+        } else if (request.getParameter(CLEAR_ARG) != null) {
+            processClear(request);
         }
+        
+        checkInactiveUsers();
+        checkCurrentUserActivity(request);
         fillResponse(response, (String) request.getSession().getAttribute(USERNAME_ARG));
+    }
+    
+    private void checkInactiveUsers() {
+        
+        Iterator<ChatUser> it = getActiveUsers().iterator();
+        while (it.hasNext()) {
+            ChatUser user = it.next();
+            if (new Date().getTime() - user.getLastActiveTime().getTime() >= 1*60*1000) {
+                // is 1 or more mintues inactive
+                it.remove();
+            }
+        }
+    }
+    
+    private void checkCurrentUserActivity(HttpServletRequest request) {
+        // check if current user wasn't cut off
+        String username = (String) request.getSession().getAttribute(USERNAME_ARG);
+        if (getActiveUserByName(username) == null) {
+            request.getSession().removeAttribute(USERNAME_ARG);
+            hideMessagesFrom(username);
+        }
     }
     
     private void processLogin(HttpServletRequest request) {        
         String username = request.getParameter(USERNAME_ARG);
-        List<String> activeUsers = getActiveUsers();
+        List<ChatUser> activeUsers = getActiveUsers();
         
-        if (activeUsers.contains(username)) {
+        if (activeUsers.stream().anyMatch(user -> user.getUsername().equals(username))) {
             // username is taken
         } else {
-            activeUsers.add(username);
+            activeUsers.add(new ChatUser(username));
             request.getSession().setAttribute(USERNAME_ARG, username);
         }
         
@@ -81,19 +111,42 @@ public class ChatServlet extends HttpServlet {
         }
         
         saveAllMessages(chatMessages);
+        
+        ChatUser currentUser = getActiveUserByName(username);
+        if (currentUser != null) {
+            currentUser.setLastActiveTime(new Date());
+        }
     }
     
     private void processLogout(HttpServletRequest request) {
         String username = (String) request.getSession().getAttribute(USERNAME_ARG);
-        List<String> activeUsers = getActiveUsers();
-        activeUsers.remove(username);
+        List<ChatUser> activeUsers = getActiveUsers();
+        
+        Iterator<ChatUser> it = activeUsers.iterator();
+        while (it.hasNext()) {
+            if (it.next().getUsername().equals(username)) {
+                it.remove();
+            }
+        }
+                
         saveActiveUsers(activeUsers);
         request.getSession().removeAttribute(USERNAME_ARG);
     }
     
+    private void processClear(HttpServletRequest request) {
+        String username = (String) request.getSession().getAttribute(USERNAME_ARG);
+        hideMessagesFrom(username);
+    }
+    
+    private void hideMessagesFrom(String username) {
+        List<ChatMessage> allMessages = getAllMessages();
+        allMessages.forEach(msg -> {
+            msg.hideFrom(username);
+        });
+        saveAllMessages(allMessages);
+    }
+    
     private void fillResponse(HttpServletResponse response, String username) throws IOException {
-        List<ChatMessage> chatMessages = (List<ChatMessage>) getServletContext().getAttribute(CHAT_MESSAGES_ARG);
-        
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             out.println("<!DOCTYPE html>");
@@ -108,11 +161,12 @@ public class ChatServlet extends HttpServlet {
                 // active users part
                 out.println("Active users:");
                 out.println("<ul>");
-                getActiveUsers().forEach(user -> out.println("<li>"+user+"</li>"));
+                getActiveUsers().forEach(user -> out.println("<li>"+user.getUsername()+"</li>"));
                 out.println("</ul>");
                 out.println("You are logged in as " + username + "<br><br>");
                 
-                //  messages part                
+                //  messages part
+                List<ChatMessage> chatMessages = getAllMessagesByUser(username);
                 out.println("<textarea name=\"chatArea\" rows=10 cols=40 readonly>");
                 if (chatMessages != null) {
                     chatMessages.forEach(msg -> {
@@ -125,6 +179,7 @@ public class ChatServlet extends HttpServlet {
                 out.println("<form action=\"ChatServlet\" method=\"post\">Send message: <input type=\"text\" name=\"message\"><input type=\"submit\" value=\"send\"></form><br>");
                 out.println("<form action=\"ChatServlet\" method=\"post\"><input type=\"submit\" value=\"refresh\"><input type=\"text\" name=\"refresh\" style=\"visibility:hidden;\"></form><br>");
                 out.println("<form action=\"ChatServlet\" method=\"post\"><input type=\"submit\" value=\"logout\"><input type=\"text\" name=\"logout\" style=\"visibility:hidden;\"></form><br>");
+                out.println("<form action=\"ChatServlet\" method=\"post\"><input type=\"submit\" value=\"clear\"><input type=\"text\" name=\"clear\" style=\"visibility:hidden;\"></form><br>");
             } else {
                 out.println("There's a problem with your login process.");
                 out.println("Please check following possibilities:");
@@ -142,17 +197,31 @@ public class ChatServlet extends HttpServlet {
         return chatMessages;
     }
     
+    private List<ChatMessage> getAllMessagesByUser(String username) {
+        List<ChatMessage> allMessages = getAllMessages();
+        return allMessages.stream().filter(msg -> msg.isVisibleTo(username)).collect(Collectors.toList());
+    }
+    
     private void saveAllMessages(List<ChatMessage> allMessages) {
         getServletContext().setAttribute(CHAT_MESSAGES_ARG,allMessages);
     }
     
-    private List<String> getActiveUsers() {
-        List<String> activeUsers = (List<String>) getServletContext().getAttribute(ACTIVE_USERS_ARG);
+    private List<ChatUser> getActiveUsers() {
+        List<ChatUser> activeUsers = (List<ChatUser>) getServletContext().getAttribute(ACTIVE_USERS_ARG);
         activeUsers = activeUsers != null ? activeUsers : new ArrayList<>();
         return activeUsers;
     }
     
-    private void saveActiveUsers(List<String> activeUsers) {
+    private ChatUser getActiveUserByName(String username) {
+        for (ChatUser user : getActiveUsers()) {
+            if (user.getUsername() != null && user.getUsername().equals(username)) {
+                return user;
+            }
+        }
+        return null;
+    }
+    
+    private void saveActiveUsers(List<ChatUser> activeUsers) {
         getServletContext().setAttribute(ACTIVE_USERS_ARG, activeUsers);        
     }
 

@@ -1,4 +1,6 @@
 WebApp/ChatMessage.java
  WebApp.ChatMessage
+WebApp/ChatUser.java
+ WebApp.ChatUser
 WebApp/ChatServlet.java
  WebApp.ChatServlet

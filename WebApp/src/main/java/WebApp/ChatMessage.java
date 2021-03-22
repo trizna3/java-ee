@@ -5,6 +5,9 @@
  */
 package WebApp;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  *
  * @author adamt
@@ -12,6 +15,7 @@ package WebApp;
 public class ChatMessage {
     private String username;
     private String text;
+    private Map<String,Boolean> visibleTo;
 
     public ChatMessage(String username, String text) {
         this.username = username;
@@ -33,6 +37,23 @@ public class ChatMessage {
     public void setText(String text) {
         this.text = text;
     }
+
+    public Map<String, Boolean> getVisibleTo() {
+        if (visibleTo == null) {
+            visibleTo = new HashMap<>();
+        }
+        return visibleTo;
+    }
+
+    public void setVisibleTo(Map<String, Boolean> visibleTo) {
+        this.visibleTo = visibleTo;
+    }
     
+    public void hideFrom(String user) {
+        visibleTo.put(user,Boolean.FALSE);
+    }
     
+    public boolean isVisibleTo(String user) {
+        return !Boolean.FALSE.equals(getVisibleTo().get(user));
+    }
 }
