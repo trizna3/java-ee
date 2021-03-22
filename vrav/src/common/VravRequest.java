@@ -1,4 +1,4 @@
-package src;
+package src.common;
 
 public class VravRequest { 
 	private VravHeader header;

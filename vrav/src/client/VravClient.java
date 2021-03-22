@@ -1,4 +1,4 @@
-package src;
+package src.client;
 
 import java.applet.Applet;
 import java.awt.Button;
@@ -20,6 +20,14 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.Map;
+
+import src.common.VravCommunicationUtil;
+import src.common.VravCryptedCommunicator;
+import src.common.VravHeader;
+import src.common.VravResponse;
+import src.common.VravTextDiffUtil;
+import src.common.VravTextTransport;
+import src.server.VravServer;
 
 public class VravClient extends Applet implements Runnable, VravCryptedCommunicator
 {

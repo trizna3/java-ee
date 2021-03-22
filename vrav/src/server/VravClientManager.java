@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package src;
+package src.server;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -12,6 +12,12 @@ import java.io.ObjectInputStream;
 import java.net.Socket;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+
+import src.common.VravCommunicationUtil;
+import src.common.VravCryptedCommunicator;
+import src.common.VravHeader;
+import src.common.VravRequest;
+import src.common.VravTextTransport;
 
 public class VravClientManager implements Runnable, VravCryptedCommunicator
 {

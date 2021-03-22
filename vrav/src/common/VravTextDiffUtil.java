@@ -1,4 +1,4 @@
-package src;
+package src.common;
 
 /**
  * Computes difference in old and text to determine what changed.

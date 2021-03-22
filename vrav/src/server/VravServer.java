@@ -1,4 +1,4 @@
-package src;
+package src.server;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -12,16 +12,19 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
+import src.common.VravCommunicationUtil;
+import src.common.VravTextTransport;
+
 
 public class VravServer {
 
-    final static int PORT = 2005;
+    public final static int PORT = 2005;
     
-    public static final String SERVER_MSG_PUBLIC_KEY_PATH = "srvPublicKey";
-    public static final String SERVER_MSG_PRIVATE_KEY_PATH = "srvPrivateKey";
+    public static final String SERVER_MSG_PUBLIC_KEY_PATH = "keys/srvPublicKey";
+    public static final String SERVER_MSG_PRIVATE_KEY_PATH = "keys/srvPrivateKey";
     
-    public static final String CLIENT_MSG_PUBLIC_KEY_PATH = "clientPublicKey";
-    public static final String CLIENT_MSG_PRIVATE_KEY_PATH = "clientPrivateKey";
+    public static final String CLIENT_MSG_PUBLIC_KEY_PATH = "keys/clientPublicKey";
+    public static final String CLIENT_MSG_PRIVATE_KEY_PATH = "keys/clientPrivateKey";
 
     private Map<Integer,VravClientManager> clientManagers = new HashMap<Integer, VravClientManager>();
     
