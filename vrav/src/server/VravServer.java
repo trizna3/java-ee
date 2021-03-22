@@ -30,6 +30,7 @@ public class VravServer {
     
     public static void main(String[] args) {
     	generateKeyPair();
+    	VravDbClient.createTables();
         new VravServer().createConnection();
     }
     

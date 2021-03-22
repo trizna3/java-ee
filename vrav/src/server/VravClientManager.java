@@ -12,18 +12,27 @@ import java.io.ObjectInputStream;
 import java.net.Socket;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.sql.SQLException;
+import java.util.List;
 
 import src.common.VravCommunicationUtil;
 import src.common.VravCryptedCommunicator;
 import src.common.VravHeader;
 import src.common.VravRequest;
 import src.common.VravTextTransport;
+import src.server.rdg.Activity;
+import src.server.rdg.ActivityDAO;
+import src.server.rdg.ActivityType;
+import src.server.rdg.Actor;
+import src.server.rdg.ActorDAO;
+import src.server.rdg.UserLevel;
 
 public class VravClientManager implements Runnable, VravCryptedCommunicator
 {
 	private VravServer server;
 	private int descriptor;
 	private String name;
+	private String password;
     private DataInputStream rd;
     private DataOutputStream wr;
 
@@ -55,6 +64,14 @@ public class VravClientManager implements Runnable, VravCryptedCommunicator
     
     public void sendLogon(int descriptor, String name) {
     	sendResponse(descriptor,VravHeader.HEADER_LOGON,name);
+    }
+    
+    public void sendLogonResponse(int descriptor, String name, Boolean passed) {
+    	sendResponse(descriptor,VravHeader.HEADER_LOGON_RESP, passed.toString());
+    }
+    
+    public void sendGetActivities(int descriptor, String message) {
+    	sendResponse(descriptor,VravHeader.HEADER_GET_ACTIVITIES, message);
     }
     
     public void sendLogoff(int descriptor) {
@@ -121,17 +138,55 @@ public class VravClientManager implements Runnable, VravCryptedCommunicator
     		receiveLogon(request);
     		return;
     	}
+    	if (VravHeader.HEADER_GET_ACTIVITIES == request.getHeader()) {
+    		receiveGetActivities(request);
+    		return;
+    	}
     }
     
 	private void receiveMessage(VravRequest request) {
 		String message = request.getMessage();
+		
 		server.sendMessageToAllOthers(getDescriptor(), message);
+		VravDbClient.storeActivity(name, ActivityType.SEND_MESSAGE, true);
 	}
 	
 	private void receiveLogon(VravRequest request) {
-		String name = request.getMessage();
+		String[] messageSplit = request.getMessage().split(";");
+		String name = messageSplit[0];
+		String password = messageSplit[1];
+		
 		this.name = name;
-		server.sendLogonToAllOthers(getDescriptor());
+		this.password = password;
+		
+		if (validateActorOnLogon()) {
+			sendLogonResponse(descriptor, name, Boolean.TRUE);
+			VravDbClient.storeActivity(name,ActivityType.LOGON,true);
+			server.sendLogonToAllOthers(getDescriptor());
+		} else {
+			sendLogonResponse(descriptor, name, Boolean.FALSE);
+			VravDbClient.storeActivity(name,ActivityType.LOGON,false);
+		}
+    }
+	
+	private void receiveGetActivities(VravRequest request) {
+		
+		try {
+			List<Activity> activities = ActivityDAO.getAllActivities();
+			StringBuilder response = new StringBuilder("(actorName, timestamp, activityType, success)\n\n");
+			for (Activity activity : activities) {
+				response.append("(");
+				response.append(activity.getActorName()+", ");
+				response.append(activity.getTimestamp()+", ");
+				response.append(activity.getActivityType()+", ");
+				response.append(activity.getSuccess());
+				response.append(")\n");
+			}
+			
+			sendGetActivities(descriptor, response.toString());
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
     }
 	
 	private void receiveTextModification(VravRequest request) {
@@ -177,5 +232,31 @@ public class VravClientManager implements Runnable, VravCryptedCommunicator
 		}
 		
 		return publicKey;
+	}
+	
+	private boolean validateActorOnLogon() {
+		try {
+			Actor foundActor = ActorDAO.getActorByName(name);
+		
+			if (foundActor == null) {
+				System.out.println("Actor " + name + "not found. Creating entry.");
+				Actor a = new Actor();
+				a.setUsername(name);
+				a.setUserLevel(UserLevel.BASIC);
+				a.store();
+			} else {
+				// check password
+				if (password == null || !password.equals(foundActor.getPassword())) {
+					System.out.println("Wrong password for actor " + name + ". Rejecting logon.");
+					return false;
+				}
+			}
+		} catch (Exception e) {
+			System.out.println("Error occured on querying actor");
+			e.printStackTrace();
+			return false;
+		}
+		System.out.println("Logon for actor " + name + " accepted.");
+		return true;
 	}
 }

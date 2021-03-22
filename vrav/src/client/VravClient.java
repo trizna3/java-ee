@@ -44,9 +44,18 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 	
 	// name setting components
 	private String clientName;
+	private String clientPassword;
 	private TextArea nameArea;
+	private TextArea passwordArea;
 	private Button nameButton;
 	private boolean nameSet = false;
+	
+	private Button getActivitiesButton;
+	
+	private int logonPassed = 0;
+	private static final int LOGON_NOT_PASSED = 0;
+	private static final int LOGON_WAIT = 1;
+	private static final int LOGON_PASSED = 2;
 	
 	// keep record of last text state, to compute difference with newest state
 	private String myAreaText = null;
@@ -59,8 +68,10 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 	}
 	
 	private void refreshCanvas() {
-		if (!nameSet) {
+		removeAll();
+		if (logonPassed != LOGON_PASSED) {
 			nameArea = new TextArea(2,50);
+			passwordArea = new TextArea(2,50);
 			nameButton = new Button("Submit");
 			nameButton.addActionListener(new ActionListener() {
 				@Override
@@ -71,15 +82,33 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 						allClientNames.put(0, name);
 						nameSet = true;
 					}
+					
+					String password = passwordArea.getText();
+					if (password != null && password.trim().length() > 0) {
+						clientPassword = password;
+						nameSet = true;
+					}
+					
+					sendLogon();
 				}
 			});
 			
 			add(new Label("Zadaj meno:"));
 			add(nameArea);
+			add(new Label("Zadaj heslo:"));
+			add(passwordArea);
 			add(nameButton);
-			
 		} else {
-			removeAll();
+			if (VravCommunicationUtil.ADMIN_USERNAME.equals(clientName)) {
+				getActivitiesButton = new Button("Get Activities");
+				getActivitiesButton.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						sendGetActivities();
+					}
+				});
+				add(getActivitiesButton);
+			}
 			textAreas.put(0, new TextArea());
 			for (int client : textAreas.keySet()) {
 				add(new Label(allClientNames.get(client)));
@@ -111,10 +140,6 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 		}
 	}
 	
-//	public void paint() {
-//		
-//	}
-
 	public void setupTextListeners() {
 		textAreas.get(0).addTextListener(new TextListener(){
 			@Override
@@ -147,22 +172,25 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 
 	public void run() {
 		// wait for user to fill name
-		while(true) {
-			try {
-				if (nameSet) {
-					refreshCanvas();
+		while (logonPassed != LOGON_PASSED) {
+			while(logonPassed == LOGON_NOT_PASSED) {
+				try {
+					if (nameSet) {
+						refreshCanvas();
+						nameSet = false;
+						logonPassed = LOGON_WAIT;
+						break;
+					}
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
 					break;
 				}
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				break;
+			}
+			while (logonPassed == LOGON_WAIT) {
+				receiveResponse();
 			}
 		}
 		
-		// run applet after name was set
-		sendLogon();
-		
-
 		while(receiveResponse()) {
 		}
 		System.out.println("Koniec rozhovoru.");
@@ -193,7 +221,14 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 	}
 	
 	private void sendLogon() {
-		sendRequest(VravHeader.HEADER_LOGON, clientName == null ? "" : clientName);
+		String name = clientName != null ? clientName : "";
+		String pass = clientPassword != null ? clientPassword : "";
+		
+		sendRequest(VravHeader.HEADER_LOGON, name + ";" + pass);
+	}
+	
+	private void sendGetActivities() {
+		sendRequest(VravHeader.HEADER_GET_ACTIVITIES,"");
 	}
 	
 	private void receiveLogon(VravResponse response) {
@@ -203,6 +238,18 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 		textAreas.put(client,new TextArea());
 		allClientNames.put(client, name);
 		
+		refreshCanvas();
+	}
+	
+	private void receiveLogonResp(VravResponse response) {
+		Boolean passed = Boolean.valueOf(response.getMessage());
+		
+		if (Boolean.TRUE.equals(passed)) {
+			logonPassed = LOGON_PASSED;
+		} else {
+			System.out.println("Logon rejected, password does not match actor's stored password.");
+			logonPassed = LOGON_NOT_PASSED;
+		}
 		refreshCanvas();
 	}
 	
@@ -217,6 +264,11 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 		allClientNames.remove(client);
 		
 		refreshCanvas();
+	}
+	
+	private void receiveGetActivities(VravResponse response) {
+		System.out.println("*** Vrav activities ***");
+		System.out.println(response.getMessage());
 	}
 	
 	private void receiveTextModification(VravResponse response) {
@@ -306,6 +358,10 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
 			receiveLogon(response);
 			return;
 		}
+		if (VravHeader.HEADER_LOGON_RESP == response.getHeader()) {
+			receiveLogonResp(response);
+			return;
+		}
 		if (VravHeader.HEADER_LOGOFF == response.getHeader()) {
 			receiveLogoff(response);
 			return;
@@ -314,6 +370,10 @@ public class VravClient extends Applet implements Runnable, VravCryptedCommunica
     		receiveTextModification(response);
     		return;
     	}
+		if (VravHeader.HEADER_GET_ACTIVITIES == response.getHeader()) {
+			receiveGetActivities(response);
+			return;
+		}
 	}
 	
 	public PublicKey getPublicKey() {

@@ -2,6 +2,8 @@ package src.common;
 
 public class VravCommunicationUtil {
 
+	public static final String ADMIN_USERNAME = "admin";
+	
 	public static final boolean LOG_ENABLED_FLAG = false;
 	public static final boolean EFFECTIVE_TALK_FlAG = false;
 
@@ -11,6 +13,8 @@ public class VravCommunicationUtil {
 	public static final int HEADER_ADD_TEXT = 4;
 	public static final int HEADER_REMOVE_TEXT = 5;
 	public static final int HEADER_REPLACE_TEXT = 6;
+	public static final int HEADER_LOGON_RESP = 7;
+	public static final int HEADER_GET_ACTIVITIES = 8;	
 	
 	public static final String END_MESSAGE = "END";
 	
@@ -139,6 +143,12 @@ public class VravCommunicationUtil {
 				return HEADER_REMOVE_TEXT;
 			case HEADER_REPLACE_TEXT:
 				return HEADER_REPLACE_TEXT;
+			case HEADER_LOGON_RESP:
+				return HEADER_LOGON_RESP;
+			case HEADER_GET_ACTIVITIES:
+				return HEADER_GET_ACTIVITIES;
+			default:
+				break;
 		}
 		throw new IllegalArgumentException("Unknown header!");
 	}
@@ -157,6 +167,10 @@ public class VravCommunicationUtil {
 				return VravHeader.HEADER_REMOVE_TEXT;
 			case HEADER_REPLACE_TEXT:
 				return VravHeader.HEADER_REPLACE_TEXT;
+			case HEADER_LOGON_RESP:
+				return VravHeader.HEADER_LOGON_RESP;
+			case HEADER_GET_ACTIVITIES:
+				return VravHeader.HEADER_GET_ACTIVITIES;
 		}
 		throw new IllegalArgumentException("Unknown header!");
 	}
