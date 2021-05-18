@@ -12,6 +12,7 @@ public abstract class RdgObject {
 	abstract protected String getTablename();
 	abstract protected void validateEnumValues();
 	
+	
 	private Integer id;
 	
 	public Integer getId() {
@@ -36,7 +37,7 @@ public abstract class RdgObject {
 	
 	protected void delete() throws SQLException {
 		try (PreparedStatement s = DBContext.getConnection().prepareStatement("DELETE from " + getTablename() + " WHERE id = ?")) {
-			s.setInt(0, getId());
+			s.setInt(1, getId());
 			s.executeUpdate();
 		}
 	}
