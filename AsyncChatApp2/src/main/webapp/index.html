@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Async Servlet Chat</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script type='text/javascript'>
+            function mySubmit()
+            {
+                var form = document.getElementById("nameForm");
+                var name = document.getElementById("name");
+                window.localStorage.setItem('name', name.value);                
+                form.submit();
+            }
+        </script>
+    </head>
+    <body>
+        <div>Welcome to Async Servlet Chat</div>
+        Your name: <input id="name" type="text" name="name" value="?"><br>
+        <form id="nameForm" method="GET" action="chat.html">            
+            <input type="submit" value="Start chatting" onclick="mySubmit()">
+        </form>
+        
+    </body>
+</html>
